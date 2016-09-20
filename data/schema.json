@@ -1,0 +1,39 @@
+{
+    "StructFields": [
+        {
+            "name": "now",
+            "type": "String",
+            "nullable" : "True"
+        },
+        {
+            "name": "br_user_group",
+            "type": "String",
+            "nullable" : "True"
+        },
+        {
+            "name": "data_tier",
+            "type": "String",
+            "nullable" : "True"
+        },
+        {
+            "name": "acquisition_era",
+            "type": "String",
+            "nullable" : "True"
+        },
+        {
+            "name": "node_kind",
+            "type": "String",
+            "nullable" : "True"
+        },
+        {
+            "name": "sum(br_dest_bytes)",
+            "type": "Double",
+            "nullable" : "True"
+        },
+        {
+            "name": "sum(br_node_bytes)",
+            "type": "Double",
+            "nullable" : "True"
+        }
+    ]
+}
