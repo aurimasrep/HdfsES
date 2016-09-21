@@ -27,12 +27,12 @@
         },
         {
             "name": "sum(br_dest_bytes)",
-            "type": "Double",
+            "type": "Long",
             "nullable" : "True"
         },
         {
             "name": "sum(br_node_bytes)",
-            "type": "Double",
+            "type": "Long",
             "nullable" : "True"
         }
     ]

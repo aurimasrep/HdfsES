@@ -9,14 +9,16 @@ Description     : Transfers data from hdfs to elasticsearch
 
 # system modules
 import os
+import re
 import sys
+import json
 import argparse
 import ConfigParser
 
 from pyspark import SparkContext
 from pyspark.sql import HiveContext
 from pyspark.sql import DataFrame
-from pyspark.sql.types import DoubleType, IntegerType, StructType, StructField, StringType, BooleanType
+from pyspark.sql.types import DoubleType, IntegerType, StructType, StructField, StringType, BooleanType, LongType
 from pyspark.sql.functions import lit
 
 from datetime import datetime as dt
@@ -26,6 +28,8 @@ from datetime import timedelta
 CONFIG_PATH = os.path.join(os.environ.get('HDFSES_CONFIG', '/'), "hdfs-es.cfg")
 # data schema path
 SCHEMA_PATH = os.path.join(os.environ.get('HDFSES_SCHEMA', '/'), "schema.json")
+# supported spark log leveles
+LOGLEVELS = ["ALL", "DEBUG", "ERROR", "FATAL", "INFO", "OFF", "TRACE", "WARN"]
 
 class OptionParser():
     def __init__(self):
@@ -42,45 +46,37 @@ class OptionParser():
         self.parser.add_argument("--todate", action="store",
             dest="todate", default="", help="Filter by end date")
         self.parser.add_argument("--logs", action="store",
-            dest="logs", default="INFO", help="Set log level")
+            dest="logs", default="INFO", help="Set log level to one of: " % LOGLEVELS)
         self.parser.add_argument("--esorigin", action="store",
             dest="esorigin", default="custom", help="Writes an data origin field to elastic search")
 
+def getStructType(sftype):
+    if type == "Integer":
+        return IntegerType()
+    elif type == "Double":
+        return DoubleType()
+    elif type == "Boolean":
+        return BooleanType()
+    elif type == "Long":
+        return LongType()
+    else:
+        return StringType()
 
 def schema():
     """
-    Provides schema (names, types, nullable) for csv snapshot
+    Provides schema (names, types, nullable) for hdfs file
 
     :returns: StructType consisting StructField array
     """
-    return StructType([StructField("now_sec", DoubleType(), True),
-                     StructField("dataset_name", StringType(), True),
-                     StructField("dataset_id", IntegerType(), True),
-                     StructField("dataset_is_open", StringType(), True),
-                     StructField("dataset_time_create", DoubleType(), True),
-                     StructField("dataset_time_update", DoubleType(), True),
-                     StructField("block_name", StringType(), True), 
-                     StructField("block_id", IntegerType(), True),
-                     StructField("block_files", IntegerType(), True),
-                     StructField("block_bytes", DoubleType(), True),
-                     StructField("block_is_open", StringType(), True),
-                     StructField("block_time_create", DoubleType(), True),
-                     StructField("block_time_update", DoubleType(), True),
-                     StructField("node_name", StringType(), True),
-                     StructField("node_id", IntegerType(), True),
-                     StructField("br_is_active", StringType(), True),
-                     StructField("br_src_files", IntegerType(), True),
-                     StructField("br_src_bytes", DoubleType(), True),
-                     StructField("br_dest_files", IntegerType(), True),
-                     StructField("br_dest_bytes", DoubleType(), True),
-                     StructField("br_node_files", IntegerType(), True),
-                     StructField("br_node_bytes", DoubleType(), True),
-                     StructField("br_xfer_files", IntegerType(), True),
-                     StructField("br_xfer_bytes", DoubleType(), True),
-                     StructField("br_is_custodial", StringType(), True),
-                     StructField("br_user_group_id", IntegerType(), True),
-                     StructField("replica_time_create", DoubleType(), True),
-                     StructField("replica_time_updater", DoubleType(), True)])
+
+    structfields = []
+    with open(SCHEMA_PATH) as fjson:
+        data = json.load(fjson)
+
+    for sf in data["StructFields"]:
+        structfields.append(StructField(sf["name"], getStructType(sf["type"]), bool(sf["nullable"])))
+
+    return StructType(structfields)
 
 def getFileList(basedir, fromdate, todate):
     """
@@ -211,11 +207,13 @@ def main():
 
     # write data to elasticsearch
     validateEsParams(esnode, esport, esresource)
-    aggres = aggres.withColumn("origin", lit(opts.esorigin))
-    aggres.repartition(1).write.format("org.elasticsearch.spark.sql").option("es.nodes", esnode)\
-                                                                     .option("es.port", esport)\
-                                                                     .option("es.resource", esresource)\
-                                                                     .save(mode="append")
+    if opts.esorigin:
+        pdf = pdf.withColumn("origin", lit(opts.esorigin))
+
+    pdf.repartition(1).write.format("org.elasticsearch.spark.sql").option("es.nodes", esnode)\
+                                                                  .option("es.port", esport)\
+                                                                  .option("es.resource", esresource)\
+                                                                  .save(mode="append")
 
 if __name__ == '__main__':
     main()
